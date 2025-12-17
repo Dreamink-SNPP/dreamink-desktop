@@ -39,8 +39,8 @@ jobs:
 
       - name: Install ruby-packer
         run: |
-          wget https://github.com/pmq20/ruby-packer/releases/download/v2.7.0/rubyc-linux-x64.tar.gz
-          tar -xzf rubyc-linux-x64.tar.gz
+          wget https://github.com/pmq20/ruby-packer/releases/download/linux-x64/rubyc
+          chmod +x rubyc
           sudo mv rubyc /usr/local/bin/
 
       - name: Set version
@@ -95,7 +95,7 @@ jobs:
       - name: Install ruby-packer
         shell: bash
         run: |
-          curl -L https://github.com/pmq20/ruby-packer/releases/download/v2.7.0/rubyc-windows.exe -o rubyc.exe
+          curl -L https://github.com/pmq20/ruby-packer/releases/download/windows-x64/rubyc.exe -o rubyc.exe
 
       - name: Set version
         id: version
