@@ -1,0 +1,29 @@
+#!/bin/bash
+set -e
+
+echo "=== Dreamink Desktop Packaging Preparation ==="
+
+# Clean previous builds
+echo "Cleaning previous builds..."
+rm -rf tmp/cache
+rm -rf public/assets
+rm -rf app/assets/builds/*
+
+# Install dependencies
+echo "Installing dependencies..."
+bundle install --without development test
+npm ci --production
+
+# Precompile assets
+echo "Precompiling assets..."
+RAILS_ENV=production SECRET_KEY_BASE=dummy rails assets:precompile
+
+# Create storage directories
+echo "Creating storage directories..."
+mkdir -p storage
+
+# Generate default database
+echo "Creating production database..."
+RAILS_ENV=production SECRET_KEY_BASE=dummy rails db:create db:migrate
+
+echo "Preparation complete!"
