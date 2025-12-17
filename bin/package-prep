@@ -11,7 +11,9 @@ rm -rf app/assets/builds/*
 
 # Install dependencies
 echo "Installing dependencies..."
-bundle install --without development test
+bundle config set --local path 'vendor/bundle'
+bundle config set --local without 'development test'
+bundle install
 npm ci --production
 
 # Precompile assets

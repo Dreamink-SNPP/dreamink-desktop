@@ -25,7 +25,14 @@ cp -r lib "$BUILD_DIR/"
 cp -r public "$BUILD_DIR/"
 cp -r vendor "$BUILD_DIR/"
 cp -r storage "$BUILD_DIR/"
-cp bin/rails "$BUILD_DIR/"
+# Create rails launcher (modified paths since not in bin/ subdirectory)
+cat > "$BUILD_DIR/rails" << 'RAILS_EOF'
+#!/usr/bin/env ruby
+APP_PATH = File.expand_path("config/application", __dir__)
+require_relative "config/boot"
+require "rails/commands"
+RAILS_EOF
+chmod +x "$BUILD_DIR/rails"
 cp Gemfile "$BUILD_DIR/"
 cp Gemfile.lock "$BUILD_DIR/"
 cp Rakefile "$BUILD_DIR/"
@@ -39,6 +46,16 @@ cp -r node_modules "$BUILD_DIR/"
 # Create directories
 mkdir -p "$BUILD_DIR/log"
 mkdir -p "$BUILD_DIR/tmp"
+mkdir -p "$BUILD_DIR/.bundle"
+
+# Configure bundler to use vendor/bundle
+echo "Configuring bundler..."
+cat > "$BUILD_DIR/.bundle/config" << 'EOF'
+---
+BUNDLE_PATH: "vendor/bundle"
+BUNDLE_DISABLE_SHARED_GEMS: "true"
+BUNDLE_WITHOUT: "development:test"
+EOF
 
 # Create startup script
 if [ "$PLATFORM" = "linux" ]; then
@@ -66,7 +83,7 @@ if [ ! -f storage/production.sqlite3 ]; then
 fi
 
 # Get local IP for LAN access
-LOCAL_IP=$(hostname -I | awk '{print $1}' 2>/dev/null || echo "127.0.0.1")
+LOCAL_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}' || hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
 
 echo "========================================="
 echo "  Dreamink Desktop is starting..."
