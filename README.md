@@ -2,6 +2,9 @@
 
 > Open-source web application for dramatic structure management in audiovisual works
 
+> [!IMPORTANT]
+> **This is the desktop/PWA version of Dreamink.** This repository contains the offline-capable desktop application with Progressive Web App features. For the standard web application version, see [dreamink-project](https://github.com/Dreamink-SNPP/dreamink-project).
+
 Dreamink is a web application designed to help screenwriters organize and structure their audiovisual works before writing the literary script. It provides comprehensive tools for managing dramatic structure using a three-tier hierarchy (Acts, Sequences, Scenes) with a Kanban-style interface, along with character profiles, locations, and idea management.
 
 ## Features
