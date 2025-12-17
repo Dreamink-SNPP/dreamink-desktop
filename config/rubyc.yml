@@ -1,0 +1,42 @@
+# Ruby-packer configuration for Dreamink Desktop
+entrance: bin/rails
+output: dreamink
+tmpdir: tmp/rubyc
+
+# Exclude unnecessary files to reduce package size
+exclude:
+  - .git
+  - .github
+  - test
+  - tmp
+  - log
+  - storage/*.sqlite3
+  - storage/*.sqlite3-*
+  - node_modules
+  - app/assets/builds/*.map
+  - public/uploads
+  - coverage
+  - doc
+  - docs
+  - .env
+  - .env.*
+
+# Critical gem dependencies (ruby-packer will bundle these)
+gem_dependencies:
+  - rails
+  - puma
+  - sqlite3
+  - bcrypt
+  - acts_as_list
+  - prawn
+  - prawn-table
+  - solid_cache
+  - solid_queue
+  - solid_cable
+  - turbo-rails
+  - stimulus-rails
+  - tailwindcss-rails
+  - propshaft
+  - jsbundling-rails
+  - jbuilder
+  - bootsnap
