@@ -1,0 +1,182 @@
+name: Build Desktop Apps
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.4.6
+          bundler-cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libsqlite3-dev imagemagick nsis
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install ruby-packer
+        run: |
+          wget https://github.com/pmq20/ruby-packer/releases/download/v2.7.0/rubyc-linux-x64.tar.gz
+          tar -xzf rubyc-linux-x64.tar.gz
+          sudo mv rubyc /usr/local/bin/
+
+      - name: Set version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+          fi
+
+      - name: Build Linux executable
+        run: |
+          ./bin/build-desktop linux ${{ env.VERSION }}
+
+      - name: Install appimagetool
+        run: |
+          wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          sudo mv appimagetool-x86_64.AppImage /usr/local/bin/appimagetool
+
+      - name: Build AppImage
+        run: |
+          ./installers/linux/build-appimage.sh ${{ env.VERSION }}
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dreamink-linux
+          path: dist/Dreamink-*.AppImage
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.4.6
+          bundler-cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install ruby-packer
+        shell: bash
+        run: |
+          curl -L https://github.com/pmq20/ruby-packer/releases/download/v2.7.0/rubyc-windows.exe -o rubyc.exe
+
+      - name: Set version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+          fi
+
+      - name: Build Windows executable
+        shell: bash
+        run: |
+          # Run package prep
+          bundle install --without development test
+          npm ci --production
+          RAILS_ENV=production SECRET_KEY_BASE=dummy bin/rails assets:precompile
+          mkdir -p storage
+          RAILS_ENV=production SECRET_KEY_BASE=dummy bin/rails db:create db:migrate
+
+          # Build with ruby-packer
+          ./rubyc.exe --output=dreamink-windows.exe bin/rails
+
+      - name: Create Windows distribution
+        shell: bash
+        run: |
+          mkdir -p dist/dreamink-${{ env.VERSION }}-windows
+          cp dreamink-windows.exe dist/dreamink-${{ env.VERSION }}-windows/dreamink.exe
+          cp -r public dist/dreamink-${{ env.VERSION }}-windows/
+          cp -r storage dist/dreamink-${{ env.VERSION }}-windows/
+          mkdir -p dist/dreamink-${{ env.VERSION }}-windows/log
+          mkdir -p dist/dreamink-${{ env.VERSION }}-windows/tmp
+          cp bin/start.bat dist/dreamink-${{ env.VERSION }}-windows/
+
+      - name: Build NSIS installer
+        run: |
+          makensis /DVERSION=${{ env.VERSION }} installers/windows/dreamink.nsi
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dreamink-windows
+          path: dist/DreaminkSetup-*-windows.exe
+
+  release:
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dreamink-linux/*.AppImage
+            dreamink-windows/*.exe
+          draft: false
+          prerelease: false
+          body: |
+            ## Dreamink Desktop ${{ github.ref_name }}
+
+            Standalone desktop application for screenwriters. Works completely offline!
+
+            ### Downloads
+
+            - **Windows**: Download `DreaminkSetup-*-windows.exe`
+            - **Linux**: Download `Dreamink-*-x86_64.AppImage`
+
+            ### Installation
+
+            **Windows:**
+            1. Run the installer
+            2. Launch from Start Menu
+
+            **Linux:**
+            1. Make executable: `chmod +x Dreamink-*.AppImage`
+            2. Run: `./Dreamink-*.AppImage`
+
+            See [DESKTOP_INSTALL.md](https://github.com/${{ github.repository }}/blob/main/DESKTOP_INSTALL.md) for full instructions.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
