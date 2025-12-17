@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Dreamink Desktop
+Comment=Offline screenwriting structure organizer
+Exec=dreamink
+Icon=dreamink
+Categories=Office;Utility;AudioVideo;
+Terminal=false
+StartupNotify=true
+Version=1.0
