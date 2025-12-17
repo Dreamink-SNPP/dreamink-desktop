@@ -1,0 +1,159 @@
+name: Build Desktop Apps (Simple)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build-linux-portable:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Set version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+          fi
+
+      - name: Build Linux portable bundle
+        run: |
+          ./bin/build-desktop-simple linux ${{ env.VERSION }}
+
+      - name: Create tar.gz archive
+        run: |
+          cd dist
+          tar -czf Dreamink-${{ env.VERSION }}-Linux-Portable.tar.gz dreamink-${{ env.VERSION }}-linux
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dreamink-linux-portable
+          path: dist/Dreamink-*.tar.gz
+
+  build-windows-portable:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Set version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+          fi
+
+      - name: Build Windows portable bundle
+        shell: bash
+        run: |
+          ./bin/build-desktop-simple windows ${{ env.VERSION }}
+
+      - name: Create zip archive
+        shell: pwsh
+        run: |
+          cd dist
+          Compress-Archive -Path dreamink-${{ env.VERSION }}-windows -DestinationPath Dreamink-${{ env.VERSION }}-Windows-Portable.zip
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dreamink-windows-portable
+          path: dist/Dreamink-*.zip
+
+  release:
+    needs: [build-linux-portable, build-windows-portable]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dreamink-linux-portable/*.tar.gz
+            dreamink-windows-portable/*.zip
+          draft: false
+          prerelease: false
+          body: |
+            ## Dreamink Desktop ${{ github.ref_name }}
+
+            Portable desktop application for screenwriters. Works completely offline!
+
+            ### Downloads
+
+            - **Windows**: Download `Dreamink-*-Windows-Portable.zip`
+            - **Linux**: Download `Dreamink-*-Linux-Portable.tar.gz`
+
+            ### Installation
+
+            **Requirements:**
+            - Ruby 3.4+ ([Download Ruby](https://www.ruby-lang.org/en/downloads/))
+            - Bundler gem: `gem install bundler`
+
+            **Windows:**
+            1. Extract the zip file
+            2. Double-click `start-dreamink.bat`
+            3. Open browser to http://localhost:3000
+
+            **Linux:**
+            1. Extract: `tar -xzf Dreamink-*-Linux-Portable.tar.gz`
+            2. Run: `cd dreamink-*-linux && ./start-dreamink.sh`
+            3. Open browser to http://localhost:3000
+
+            See [DESKTOP_INSTALL.md](https://github.com/${{ github.repository }}/blob/main/DESKTOP_INSTALL.md) for full instructions.
+
+            ### What's New
+
+            - ✅ No compilation required
+            - ✅ Simple portable bundle
+            - ✅ Works offline
+            - ✅ Cross-platform (Windows, Linux, macOS)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

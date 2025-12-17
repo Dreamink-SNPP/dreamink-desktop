@@ -1,0 +1,188 @@
+#!/bin/bash
+set -e
+
+PLATFORM=${1:-linux}
+VERSION=${2:-1.0.0}
+BUILD_DIR="dist/dreamink-$VERSION-$PLATFORM"
+
+echo "=== Building Dreamink Desktop v$VERSION for $PLATFORM (Simple Bundle) ==="
+
+# Clean previous builds
+echo "Cleaning previous builds..."
+rm -rf dist/dreamink-$VERSION-*
+mkdir -p "$BUILD_DIR"
+
+# Run preparation
+echo "Running package preparation..."
+./bin/package-prep
+
+# Copy application files
+echo "Copying application files..."
+cp -r app "$BUILD_DIR/"
+cp -r config "$BUILD_DIR/"
+cp -r db "$BUILD_DIR/"
+cp -r lib "$BUILD_DIR/"
+cp -r public "$BUILD_DIR/"
+cp -r vendor "$BUILD_DIR/"
+cp -r storage "$BUILD_DIR/"
+cp bin/rails "$BUILD_DIR/"
+cp Gemfile "$BUILD_DIR/"
+cp Gemfile.lock "$BUILD_DIR/"
+cp Rakefile "$BUILD_DIR/"
+cp package.json "$BUILD_DIR/"
+cp package-lock.json "$BUILD_DIR/"
+
+# Copy node_modules (bundled)
+echo "Copying node modules..."
+cp -r node_modules "$BUILD_DIR/"
+
+# Create directories
+mkdir -p "$BUILD_DIR/log"
+mkdir -p "$BUILD_DIR/tmp"
+
+# Create startup script
+if [ "$PLATFORM" = "linux" ]; then
+  echo "Creating Linux startup script..."
+  cat > "$BUILD_DIR/start-dreamink.sh" << 'EOF'
+#!/bin/bash
+# Dreamink Desktop Launcher for Linux
+cd "$(dirname "$0")"
+
+echo "Starting Dreamink Desktop..."
+echo ""
+
+# Set environment
+export RAILS_ENV=production
+export SECRET_KEY_BASE=$(openssl rand -hex 64 2>/dev/null || cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 64 | head -n 1)
+export RAILS_SERVE_STATIC_FILES=true
+export RAILS_LOG_TO_STDOUT=false
+export RAILS_FORCE_SSL=false
+
+# Initialize database if needed
+if [ ! -f storage/production.sqlite3 ]; then
+  echo "Initializing database (first run)..."
+  bundle exec rails db:migrate
+  echo ""
+fi
+
+# Get local IP for LAN access
+LOCAL_IP=$(hostname -I | awk '{print $1}' 2>/dev/null || echo "127.0.0.1")
+
+echo "========================================="
+echo "  Dreamink Desktop is starting..."
+echo "========================================="
+echo ""
+echo "  Local:   http://localhost:3000"
+echo "  Network: http://$LOCAL_IP:3000"
+echo ""
+echo "  Press Ctrl+C to stop"
+echo ""
+echo "========================================="
+
+# Start server
+bundle exec rails server -p 3000 -b 0.0.0.0
+EOF
+  chmod +x "$BUILD_DIR/start-dreamink.sh"
+
+elif [ "$PLATFORM" = "windows" ]; then
+  echo "Creating Windows startup script..."
+  cat > "$BUILD_DIR/start-dreamink.bat" << 'EOF'
+@echo off
+REM Dreamink Desktop Launcher for Windows
+cd /d "%~dp0"
+
+echo Starting Dreamink Desktop...
+echo.
+
+REM Set environment
+set RAILS_ENV=production
+set RAILS_SERVE_STATIC_FILES=true
+set RAILS_LOG_TO_STDOUT=false
+set RAILS_FORCE_SSL=false
+
+REM Generate SECRET_KEY_BASE
+for /f "delims=" %%i in ('powershell -Command "[guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')"') do set SECRET_KEY_BASE=%%i
+
+REM Initialize database if needed
+if not exist "storage\production.sqlite3" (
+  echo Initializing database (first run)...
+  bundle exec rails db:migrate
+  echo.
+)
+
+echo =========================================
+echo   Dreamink Desktop is starting...
+echo =========================================
+echo.
+echo   Open your browser to: http://localhost:3000
+echo.
+echo   Press Ctrl+C to stop
+echo.
+echo =========================================
+echo.
+
+REM Start server
+bundle exec rails server -p 3000 -b 127.0.0.1
+EOF
+fi
+
+# Create README
+cat > "$BUILD_DIR/README.txt" << EOF
+Dreamink Desktop v$VERSION
+===========================
+
+INSTALLATION:
+-------------
+No installation required! Just extract and run.
+
+STARTING THE APPLICATION:
+-------------------------
+
+Linux:
+  ./start-dreamink.sh
+
+Windows:
+  Double-click start-dreamink.bat
+
+The application will start a local server and you can access it
+at http://localhost:3000 in your web browser.
+
+REQUIREMENTS:
+-------------
+- Ruby 3.4+ (must be installed separately)
+- Bundler gem (install with: gem install bundler)
+
+On first run, the application will:
+1. Initialize the database
+2. Start the server on port 3000
+3. Open automatically in your default browser
+
+DATA LOCATION:
+--------------
+All your data is stored in the 'storage' folder:
+- storage/production.sqlite3 (main database)
+
+BACKUP:
+-------
+To backup your data, simply copy the 'storage' folder.
+
+TROUBLESHOOTING:
+----------------
+- Port 3000 in use: Edit the port number in the startup script
+- Database errors: Delete storage/production.sqlite3 and restart
+- Permission errors: Ensure the folder is writable
+
+For support, visit:
+https://github.com/Dreamink-SNPP/dreamink-desktop
+
+Enjoy writing! 🎬
+EOF
+
+echo "Build complete: $BUILD_DIR"
+echo ""
+echo "To package for distribution:"
+if [ "$PLATFORM" = "linux" ]; then
+  echo "  tar -czf dist/Dreamink-$VERSION-Linux-Portable.tar.gz -C dist dreamink-$VERSION-$PLATFORM"
+elif [ "$PLATFORM" = "windows" ]; then
+  echo "  cd dist && zip -r Dreamink-$VERSION-Windows-Portable.zip dreamink-$VERSION-$PLATFORM"
+fi
