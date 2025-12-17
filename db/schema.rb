@@ -11,7 +11,6 @@
 # It's strongly recommended that you check this file into your version control system.
 
 ActiveRecord::Schema[8.1].define(version: 2025_11_17_184638) do
-
   create_table "acts", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.text "description"
@@ -137,7 +136,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_17_184638) do
     t.integer "position"
     t.bigint "project_id"
     t.bigint "sequence_id", null: false
-    t.string "time_of_day", limit: 20, comment: "Time of day for scene heading (e.g., DAY, NIGHT, MORNING)"
+    t.string "time_of_day", limit: 20
     t.string "title"
     t.datetime "updated_at", null: false
     t.index ["act_id"], name: "index_scenes_on_act_id"
@@ -166,9 +165,9 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_17_184638) do
     t.datetime "updated_at", null: false
     t.string "user_agent"
     t.bigint "user_id", null: false
-    t.index ["created_at"], name: "index_sessions_on_created_at", comment: "For session analytics and cleanup queries"
-    t.index ["expires_at"], name: "index_sessions_on_expires_at", comment: "For efficient session cleanup queries"
-    t.index ["ip_address"], name: "index_sessions_on_ip_address", comment: "For security auditing and filtering by IP"
+    t.index ["created_at"], name: "index_sessions_on_created_at"
+    t.index ["expires_at"], name: "index_sessions_on_expires_at"
+    t.index ["ip_address"], name: "index_sessions_on_ip_address"
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 
