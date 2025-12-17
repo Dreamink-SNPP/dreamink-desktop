@@ -113,9 +113,9 @@ jobs:
           # Run package prep
           bundle install --without development test
           npm ci --production
-          RAILS_ENV=production SECRET_KEY_BASE=dummy bin/rails assets:precompile
+          RAILS_ENV=production SECRET_KEY_BASE=dummy bundle exec rails assets:precompile
           mkdir -p storage
-          RAILS_ENV=production SECRET_KEY_BASE=dummy bin/rails db:create db:migrate
+          RAILS_ENV=production SECRET_KEY_BASE=dummy bundle exec rails db:create db:migrate
 
           # Build with ruby-packer
           ./rubyc.exe --output=dreamink-windows.exe bin/rails

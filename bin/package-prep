@@ -16,7 +16,7 @@ npm ci --production
 
 # Precompile assets
 echo "Precompiling assets..."
-RAILS_ENV=production SECRET_KEY_BASE=dummy rails assets:precompile
+RAILS_ENV=production SECRET_KEY_BASE=dummy bundle exec rails assets:precompile
 
 # Create storage directories
 echo "Creating storage directories..."
@@ -24,6 +24,6 @@ mkdir -p storage
 
 # Generate default database
 echo "Creating production database..."
-RAILS_ENV=production SECRET_KEY_BASE=dummy rails db:create db:migrate
+RAILS_ENV=production SECRET_KEY_BASE=dummy bundle exec rails db:create db:migrate
 
 echo "Preparation complete!"
