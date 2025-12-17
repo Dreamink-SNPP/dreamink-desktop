@@ -8,8 +8,8 @@ class Idea < ApplicationRecord
 
   # Scopes
   scope :recent, -> { order(created_at: :desc) }
-  scope :search, ->(query) { where("title ILIKE ? OR description ILIKE ?", "%#{query}%", "%#{query}%") }
-  scope :tagged_with, ->(tag) { where("tags ILIKE ?", "%#{tag}%") }
+  scope :search, ->(query) { where("title LIKE ? OR description LIKE ?", "%#{query}%", "%#{query}%") }
+  scope :tagged_with, ->(tag) { where("tags LIKE ?", "%#{tag}%") }
 
   def tag_list
     tags&.split(",")&.map(&:strip) || []
