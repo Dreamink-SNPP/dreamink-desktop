@@ -1,0 +1,49 @@
+#!/bin/bash
+set -e
+
+PLATFORM=${1:-linux}
+VERSION=${2:-1.0.0}
+
+echo "=== Building Dreamink Desktop v$VERSION for $PLATFORM ==="
+
+# Run preparation
+./bin/package-prep
+
+# Build with ruby-packer
+echo "Packaging application..."
+rubyc --output=dreamink-$PLATFORM bin/rails
+
+# Create distribution directory
+DIST_DIR="dist/dreamink-$VERSION-$PLATFORM"
+mkdir -p $DIST_DIR
+
+# Copy necessary files
+cp dreamink-$PLATFORM $DIST_DIR/dreamink
+cp -r public $DIST_DIR/
+cp -r storage $DIST_DIR/
+mkdir -p $DIST_DIR/log
+mkdir -p $DIST_DIR/tmp
+
+# Create launcher script
+if [ "$PLATFORM" = "linux" ]; then
+  cat > $DIST_DIR/start.sh << 'EOF'
+#!/bin/bash
+cd "$(dirname "$0")"
+export RAILS_ENV=production
+export SECRET_KEY_BASE=$(openssl rand -hex 64)
+export RAILS_SERVE_STATIC_FILES=true
+export RAILS_LOG_TO_STDOUT=true
+export RAILS_FORCE_SSL=false
+
+# Initialize database if needed
+if [ ! -f storage/production.sqlite3 ]; then
+  ./dreamink db:migrate
+fi
+
+# Start server
+./dreamink server -p 3000 -b 127.0.0.1
+EOF
+  chmod +x $DIST_DIR/start.sh
+fi
+
+echo "Build complete: $DIST_DIR"
