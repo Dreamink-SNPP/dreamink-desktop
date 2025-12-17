@@ -4,18 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Dreamink is a web application for screenwriters to organize and structure audiovisual works before writing the literary script. It manages dramatic structure using a three-tier hierarchy (Acts → Sequences → Scenes) with a Kanban-style interface, along with characters, locations, and ideas.
+> [!IMPORTANT]
+> **This is the desktop/PWA version of Dreamink.** This repository focuses on offline-capable desktop applications with Progressive Web App features. For the standard web application version, see [dreamink-project](https://github.com/Dreamink-SNPP/dreamink-project).
 
-**Stack**: Ruby on Rails 8.1.1, Ruby 3.4+, PostgreSQL 16, Node.js 22+, Tailwind CSS, Hotwire (Turbo + Stimulus), ESbuild
+Dreamink Desktop is an offline-capable application for screenwriters to organize and structure audiovisual works before writing the literary script. It manages dramatic structure using a three-tier hierarchy (Acts → Sequences → Scenes) with a Kanban-style interface, along with characters, locations, and ideas.
+
+**Stack**: Ruby on Rails 8.1.1, Ruby 3.4+, SQLite3, Node.js 22+, Tailwind CSS, Hotwire (Turbo + Stimulus), ESbuild, PWA (Service Worker)
 
 **Key Dependencies**:
+- `sqlite3` - Lightweight file-based database for offline use
 - `acts_as_list` - Position-based ordering for Acts, Sequences, Scenes
 - `bcrypt` - Password hashing for authentication
 - `prawn` & `prawn-table` - PDF generation
 - `solid_cache`, `solid_queue`, `solid_cable` - Rails 8 database-backed adapters
-- `kamal` & `thruster` - Deployment and HTTP optimization
 - `sortablejs` - Drag-and-drop functionality (frontend)
 - `dotenv-rails` - Environment variable management
+
+**Desktop/PWA Features**:
+- Service Worker for offline caching
+- PWA manifest for installable app experience
+- Offline indicator UI component
+- Desktop build scripts (Linux AppImage, Windows NSIS)
+- Ruby-packer for standalone executables
 
 ## Prerequisites
 
@@ -23,10 +33,14 @@ Dreamink is a web application for screenwriters to organize and structure audiov
   - Recommended: Use `rbenv` for Ruby version management (Linux/macOS)
 - **Rails**: 8.1.1
 - **Node.js**: 22+ (project uses 22.19.0)
-- **PostgreSQL**: 16
-- **Podman or Docker**: For running PostgreSQL container
+- **SQLite3**: Built into Ruby, no separate installation needed for development
 - **Bundler**: `gem install bundler` (or installed via `bundle install`)
 - **Foreman**: Installed automatically by `bin/dev`
+
+**For Desktop Builds** (optional):
+- `ruby-packer` (rubyc) - Creates standalone executables
+- `appimagetool` (Linux) - Builds AppImage packages
+- `nsis` (Windows) - Creates Windows installers
 
 ### Windows Users
 
@@ -66,9 +80,9 @@ If you prefer native Windows without WSL2:
 - Download from [nodejs.org](https://nodejs.org/)
 - Verify: `node --version` should show `v22.x`
 
-**PostgreSQL**:
-- Use Docker Desktop for Windows (recommended)
-- Or install PostgreSQL 16 natively from [postgresql.org](https://www.postgresql.org/download/windows/)
+**SQLite3**:
+- Included with Ruby installation (sqlite3 gem)
+- No separate installation needed
 
 **Running the Development Server**:
 The `bin/dev` script is a Unix shell script. Use one of these alternatives:
@@ -93,29 +107,12 @@ foreman start -f Procfile.dev
 
 ## Initial Setup
 
-### Quick Start with Docker Compose (Recommended)
-
-For the fastest setup with no manual configuration:
-
-```bash
-# Clone the repository
-git clone https://github.com/Dreamink-SNPP/dreamink-project.git
-cd dreamink-project
-
-# Start everything (production mode - one command!)
-docker compose -f docker-compose.prod.yml up --build -d
-
-# Visit http://localhost:3000
-```
-
-This automatically handles PostgreSQL, Ruby, Rails, Node.js, dependencies, migrations, and asset compilation. See [DOCKER.md](DOCKER.md) for complete documentation.
-
-### Manual Setup (For Local Development)
+### Local Development Setup
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Dreamink-SNPP/dreamink-project.git
-cd dreamink-project
+git clone https://github.com/Dreamink-SNPP/dreamink-desktop.git
+cd dreamink-desktop
 
 # 2. Install Ruby (if using rbenv)
 # The project uses Ruby 3.4.6 (specified in .ruby-version)
@@ -133,24 +130,17 @@ npm install
 # Important: If using rbenv, rehash after installing gems with executables
 rbenv rehash
 
-# 4. Set up database (see Database Setup section below)
-
-# 5. Create .env file with database credentials
-# Copy .env.example if available, or create .env with:
-# DATABASE_USERNAME=your_username
-# DATABASE_PASSWORD=your_password
-# DATABASE_HOST=localhost
-# DATABASE_PORT=5432
-
-# 6. Create and migrate database
+# 4. Set up database (SQLite3 - no external server needed)
 rails db:create
 rails db:migrate
 
-# 7. Start the development server
+# 5. Start the development server
 bin/dev
 ```
 
 Visit `http://localhost:3000` to access the application.
+
+**Note**: Unlike the web version, this desktop version uses SQLite3, so no PostgreSQL container or environment variables are needed. The database is stored in `storage/development.sqlite3`.
 
 ## Development Commands
 
@@ -165,120 +155,41 @@ This uses Foreman to run three processes simultaneously (defined in `Procfile.de
 
 ### Database Setup
 
-**Important**: The application uses environment variables for database configuration (see `.env` file):
-- `DATABASE_USERNAME` - PostgreSQL username
-- `DATABASE_PASSWORD` - PostgreSQL password
-- `DATABASE_HOST` - Database host (default: localhost)
-- `DATABASE_PORT` - Database port (default: 5432)
+**Important**: This desktop version uses SQLite3 for offline capability. No external database server or Docker containers are needed.
 
-#### Option 1: Using Docker Compose (Recommended)
-
-The easiest way to manage PostgreSQL is with Docker Compose:
+Database files are stored locally:
+- **Development**: `storage/development.sqlite3`
+- **Test**: `storage/test.sqlite3`
+- **Production** (desktop builds): `storage/production.sqlite3`
 
 ```bash
-# Start PostgreSQL in the background
-docker compose up -d
-
-# Check status
-docker compose ps
-
-# View logs
-docker compose logs postgres
-
-# Stop the database
-docker compose down
-
-# Stop and remove data (clean slate)
-docker compose down -v
-```
-
-After starting with Docker Compose, create and migrate the databases:
-```bash
+# Create databases (creates SQLite3 files)
 rails db:create
+
+# Run migrations
 rails db:migrate
+
+# Seed database (if seed data exists)
+rails db:seed
 ```
 
-The `docker-compose.yml` file uses your `.env` variables automatically.
-
-#### Option 2: Using Podman
+**Backing up your data:**
 ```bash
-# Start PostgreSQL 16 container
-podman run -d \
-  --name dreamink_postgres \
-  -e POSTGRES_USER=your_username \
-  -e POSTGRES_PASSWORD=your_password \
-  -e POSTGRES_DB=dreamink_development \
-  -p 5432:5432 \
-  -v dreamink_postgres_data:/var/lib/postgresql/data \
-  docker.io/postgres:16
+# Simple file copy
+cp storage/development.sqlite3 ~/backups/dreamink-backup-$(date +%Y%m%d).sqlite3
 
-# Update .env file with your credentials
-# DATABASE_USERNAME=your_username
-# DATABASE_PASSWORD=your_password
-# DATABASE_HOST=localhost
-# DATABASE_PORT=5432
-
-# Create and migrate databases
-rails db:create
-rails db:migrate
+# Or use SQLite3 backup command
+sqlite3 storage/development.sqlite3 ".backup storage/development-backup.sqlite3"
 ```
 
-#### Option 3: Using Docker (Manual)
+**Resetting the database:**
 ```bash
-# Start PostgreSQL 16 container
-docker run -d \
-  --name dreamink_postgres \
-  -e POSTGRES_USER=your_username \
-  -e POSTGRES_PASSWORD=your_password \
-  -e POSTGRES_DB=dreamink_development \
-  -p 5432:5432 \
-  -v dreamink_postgres_data:/var/lib/postgresql/data \
-  postgres:16
+# Drop, recreate, and run migrations
+rails db:reset
 
-# Update .env file with your credentials
-# DATABASE_USERNAME=your_username
-# DATABASE_PASSWORD=your_password
-# DATABASE_HOST=localhost
-# DATABASE_PORT=5432
-
-# Create and migrate databases
-rails db:create
-rails db:migrate
-```
-
-#### Managing the Database Container
-
-**With Docker Compose:**
-```bash
-# Start services
-docker compose up -d
-
-# Stop services (keeps data)
-docker compose down
-
-# Restart services
-docker compose restart
-
-# View logs
-docker compose logs -f postgres
-
-# Remove everything including volumes (⚠️ deletes data)
-docker compose down -v
-```
-
-**With Podman or Docker (manual):**
-```bash
-# Stop container
-podman stop dreamink_postgres  # or: docker stop dreamink_postgres
-
-# Start existing container
-podman start dreamink_postgres  # or: docker start dreamink_postgres
-
-# Remove container
-podman rm dreamink_postgres  # or: docker rm dreamink_postgres
-
-# View logs
-podman logs dreamink_postgres  # or: docker logs dreamink_postgres
+# Or completely remove and recreate
+rm storage/development.sqlite3
+rails db:create db:migrate
 ```
 
 ### Testing
@@ -325,9 +236,18 @@ npm run build -- --watch
 GitHub Actions workflow (`.github/workflows/ci.yml`) runs on PRs and pushes to main:
 - **scan_ruby**: Runs Brakeman security scan
 - **lint**: Runs RuboCop style checks
-- **test**: Runs full test suite with PostgreSQL service container
+- **test**: Runs full test suite with SQLite3 (no external database needed)
 
 CI uses `bin/rails db:test:prepare test test:system` to run both unit and system tests.
+
+### Desktop Build Pipeline
+
+GitHub Actions workflow (`.github/workflows/build-desktop.yml`) builds desktop installers:
+- **build-linux**: Creates AppImage for Linux (uses ruby-packer + appimagetool)
+- **build-windows**: Creates NSIS installer for Windows
+- **release**: Automatically publishes artifacts to GitHub Releases on tags
+
+Trigger manually via workflow dispatch or push a version tag (e.g., `v1.0.0`).
 
 ## Architecture
 
@@ -386,6 +306,15 @@ Frontend uses `sortable_controller.js` (Stimulus) with SortableJS library.
 - `modal_controller.js`: Modal management
 - `collapsible_controller.js`: Collapsible sections
 - `flash_controller.js`: Flash message auto-dismissal
+- `offline_controller.js`: Offline status indicator (PWA feature)
+
+**PWA Features** (`app/javascript/application.js` and `app/views/pwa/`):
+- **Service Worker** (`service-worker.js`): Provides offline functionality
+  - Network-first strategy for HTML/API requests
+  - Cache-first strategy for static assets (CSS, JS, images)
+  - Automatic fallback to cache when offline
+- **PWA Manifest** (`manifest.json.erb`): Enables "Add to Home Screen" and standalone mode
+- **Offline Indicator**: Yellow notification in bottom-right when connection lost
 
 **CSS**: Tailwind CSS with custom color palette (see `docs/STYLE_GUIDE.md`)
 - Primary brand color: `#1B3C53` (dark teal/navy)
@@ -452,23 +381,21 @@ config.force_ssl = ENV.fetch("RAILS_FORCE_SSL", "true") == "true"
 - **Kamal/public deployment:** SSL enabled by default (`RAILS_FORCE_SSL=true`)
 - **Docker Compose local/LAN:** SSL disabled (`RAILS_FORCE_SSL=false`) for ease of use
 
-**Database configuration** (`config/database.yml:89-106`):
+**Database configuration** (`config/database.yml`):
 
-Production uses multi-database setup with Solid Suite:
-- `dreamink_production` - Primary database
-- `dreamink_production_cache` - Solid Cache
-- `dreamink_production_queue` - Solid Queue
-- `dreamink_production_cable` - Solid Cable
+This desktop version uses SQLite3 for all environments:
+- **Development**: `storage/development.sqlite3`
+- **Test**: `storage/test.sqlite3`
+- **Production** (desktop builds): `storage/production.sqlite3`
+
+Solid Suite (Cache, Queue, Cable) uses the same SQLite3 database with separate tables.
 
 **Important environment variables:**
-- `DREAMINK_DATABASE_PASSWORD` - Production database password (note: not `DATABASE_PASSWORD`)
-- `DATABASE_USERNAME` - Database username
-- `DATABASE_HOST` - Database host
-- `SECRET_KEY_BASE` - Rails secret key (required for production)
-- `RAILS_FORCE_SSL` - Enable/disable HTTPS enforcement (default: true)
-- `RAILS_ASSUME_SSL` - Assume SSL termination proxy (default: true)
-- `RAILS_SERVE_STATIC_FILES` - Serve static assets via Rails (needed for Docker)
-- `RAILS_LOG_TO_STDOUT` - Send logs to stdout (for Docker/Kamal)
+- `SECRET_KEY_BASE` - Rails secret key (required for production, auto-generated in desktop builds)
+- `RAILS_ENV` - Rails environment (development/test/production)
+- `RAILS_FORCE_SSL` - Enable/disable HTTPS enforcement (default: false for desktop)
+- `RAILS_SERVE_STATIC_FILES` - Serve static assets via Rails (enabled for desktop)
+- `RAILS_LOG_TO_STDOUT` - Send logs to stdout (enabled for desktop builds)
 
 ### Internationalization
 
@@ -522,74 +449,52 @@ Tests use fixtures in `test/fixtures/` with helper methods in `test/test_helper.
 **Troubleshooting**:
 - **"command not found" for gem executables** (foreman, rubocop, etc.): Run `rbenv rehash` after installing new gems
 - **Ruby version mismatch**: Ensure `ruby --version` matches `.ruby-version` file (3.4.6)
-- **Database connection errors**: Verify PostgreSQL is running with `docker compose ps` and credentials in `.env` are correct
+- **Database errors**: Check that `storage/` directory exists and is writable
+- **"database is locked"**: SQLite3 error when multiple processes access DB simultaneously; restart server
+- **Service worker not updating**: Hard refresh (Ctrl+Shift+R) or clear browser cache
 
-### Docker Compose Deployment
+### Desktop Application Deployment
 
-The project includes two Docker Compose configurations for different use cases:
+This version is designed for **local desktop use**, not web hosting. See [DESKTOP_INSTALL.md](DESKTOP_INSTALL.md) for end-user installation instructions.
 
-#### Development Mode (`docker-compose.yml`)
+#### Building Desktop Installers
+
+**Automated via GitHub Actions:**
+1. Go to Actions tab → "Build Desktop Apps" workflow
+2. Click "Run workflow"
+3. Enter version number (e.g., "1.0.0")
+4. Wait for builds to complete (~10-15 minutes)
+5. Download artifacts from GitHub Releases
+
+**Manual local builds:**
+
+Linux AppImage:
 ```bash
-# Start all services (Postgres + Rails + JS/CSS watchers)
-docker compose up
-
-# Access at http://localhost:3000
+# Requires: ruby-packer, appimagetool
+./bin/build-desktop linux 1.0.0
+./installers/linux/build-appimage.sh 1.0.0
 ```
 
-Features:
-- Live code reloading (volume-mounted source)
-- Asset watchers (JavaScript and Tailwind CSS)
-- Debugging enabled (`RUBY_DEBUG_OPEN=true`)
-- Cached dependencies for faster restarts
-
-#### Production/Demo Mode (`docker-compose.prod.yml`)
+Windows Installer:
 ```bash
-# Build and start production-optimized setup
-docker compose -f docker-compose.prod.yml up --build -d
-
-# Access at http://localhost:3000
+# Requires: ruby-packer, NSIS (on Windows or via Wine)
+# See .github/workflows/build-desktop.yml for build steps
 ```
 
-Features:
-- Multi-stage Docker build (optimized image size)
-- Precompiled assets
-- Production Puma server with Thruster HTTP proxy
-- Auto-creates databases and runs migrations
-- **Configured for HTTP by default** (suitable for local/LAN deployment)
+**Build output:**
+- **Linux**: `dist/Dreamink-<version>-x86_64.AppImage`
+- **Windows**: `dist/DreaminkSetup-<version>-windows.exe`
 
-**Important Environment Variables (Production):**
-- `RAILS_ENV=production` - Rails environment
-- `RAILS_FORCE_SSL=false` - Disable HTTPS redirect (default for local/LAN use)
-- `RAILS_ASSUME_SSL=false` - Don't assume SSL termination
-- `DREAMINK_DATABASE_PASSWORD` - Database password (note: different from `DATABASE_PASSWORD`)
-- `SECRET_KEY_BASE` - Rails secret key (auto-generated if not provided)
+#### Build Architecture
 
-> [!NOTE]
-> The production Docker Compose setup uses HTTP (not HTTPS) by default. This is intentional for ease of use on local computers and LANs. For public internet deployment with SSL, use Kamal or configure SSL certificates manually.
+1. **ruby-packer (rubyc)**: Bundles Ruby runtime + Rails app into single executable
+2. **Package scripts** (`bin/build-desktop`, `bin/package-prep`): Prepare assets and dependencies
+3. **Installers**: Create distribution packages
+   - Linux: AppImage (self-contained, no installation needed)
+   - Windows: NSIS installer (installs to Program Files)
 
-**Known Issues Fixed:**
-1. Dockerfile updated to use npm (was: yarn) - matches project's package manager
-2. Database password environment variable aligned (`DREAMINK_DATABASE_PASSWORD`)
-3. SSL force redirect made configurable via environment variables
-
-For complete Docker documentation, see [DOCKER.md](DOCKER.md).
-
-### Kamal Deployment
-
-Uses Kamal for production deployment to public internet (config in `config/deploy.yml`).
-
-**For public deployment with SSL:**
-1. Configure domain name in `config/deploy.yml`
-2. Kamal handles Let's Encrypt SSL certificates automatically
-3. Set `RAILS_FORCE_SSL=true` in production environment
-4. Thruster provides HTTP/2 and caching
-
-```bash
-# Deploy to production
-kamal deploy
-
-# View deployment status
-kamal app logs
-```
-
-Dockerfile provided for containerization with multi-stage builds optimized for production.
+**Important build considerations:**
+- SQLite3 database bundled as empty file, populated on first run
+- Assets precompiled during build
+- `SECRET_KEY_BASE` generated at runtime
+- Binds to `127.0.0.1:3000` (localhost only for security)
