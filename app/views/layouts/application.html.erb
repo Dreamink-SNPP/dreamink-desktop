@@ -36,5 +36,11 @@
   <main class="<%= user_signed_in? ? 'pt-16' : '' %>">
     <%= yield %>
   </main>
+
+  <!-- Offline indicator -->
+  <div id="offline-indicator" data-controller="offline" class="hidden fixed bottom-4 right-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded shadow-lg z-50">
+    <p class="font-bold">Offline Mode</p>
+    <p class="text-sm">Changes will sync when connection is restored.</p>
+  </div>
   </body>
 </html>

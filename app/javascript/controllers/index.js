@@ -25,6 +25,9 @@ application.register("mobile-menu", MobileMenuController)
 import ModalController from "./modal_controller"
 application.register("modal", ModalController)
 
+import OfflineController from "./offline_controller"
+application.register("offline", OfflineController)
+
 import ScrollToTopController from "./scroll_to_top_controller"
 application.register("scroll-to-top", ScrollToTopController)
 
